@@ -1,0 +1,86 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, f1_score, confusion_matrix
+from sklearn.pipeline import Pipeline
+from imblearn.over_sampling import SMOTE
+
+# Carregar dados
+df = pd.read_csv('WA_Fn-UseC_-Telco-Customer-Churn.csv')
+df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')  # Corrigir tipo
+df.dropna(inplace=True)  # Remover NaN (11 linhas)
+
+churn_rate = df['Churn'].value_counts(normalize=True)
+print(churn_rate)
+# Saída: No (73.5%), Yes (26.5%)
+
+# Churn vs Tipo de Contrato
+sns.countplot(data=df, x='Contract', hue='Churn')
+plt.title('Churn por Tipo de Contrato')
+plt.show()  # Contratos mensais têm maior churn!
+
+# Distribuição de Tenure (tempo como cliente)
+sns.histplot(data=df, x='tenure', hue='Churn', kde=True)
+plt.title('Distribuição de Tenure')  # Clientes com menos tempo tendem a cancelar
+plt.show()
+
+# Correlação entre variáveis numéricas
+corr = df[['tenure', 'MonthlyCharges', 'TotalCharges', 'Churn']].corr()
+sns.heatmap(corr, annot=True)
+plt.show()
+
+# Remover colunas não úteis
+df.drop('customerID', axis=1, inplace=True)
+
+# Separar features e target
+X = df.drop('Churn', axis=1)
+y = df['Churn'].map({'Yes': 1, 'No': 0})
+
+# Definir transformações
+numeric_features = ['tenure', 'MonthlyCharges', 'TotalCharges']
+categorical_features = ['Contract', 'InternetService', 'PaymentMethod']
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), numeric_features),
+        ('cat', OneHotEncoder(), categorical_features)
+    ])
+
+# Dividir dados
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
+
+# Pipeline
+pipeline = Pipeline([
+    ('preprocessor', preprocessor),
+    ('smote', SMOTE(random_state=42)),
+    ('classifier', RandomForestClassifier(random_state=42))
+])
+
+# Treinar modelo
+pipeline.fit(X_train, y_train)
+
+# Previsões
+y_pred = pipeline.predict(X_test)
+print(classification_report(y_test, y_pred))
+
+# Extrair features do OneHotEncoder
+cat_features = pipeline.named_steps['preprocessor'].named_transformers_['cat'].get_feature_names_out(categorical_features)
+all_features = numeric_features + list(cat_features)
+
+# Importâncias do Random Forest
+importances = pipeline.named_steps['classifier'].feature_importances_
+feature_importance = pd.DataFrame({'Feature': all_features, 'Importance': importances})
+feature_importance.sort_values('Importance', ascending=False).head(3)
+
+import streamlit as st
+
+st.title('Dashboard de Churn')
+st.write('Taxa de Churn por Contrato:')
+st.bar_chart(df.groupby('Contract')['Churn'].mean())
+st.write('Features Mais Importantes:')
+st.write(feature_importance.sort_values('Importance', ascending=False).head(5))
