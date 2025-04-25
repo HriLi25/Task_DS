@@ -1,0 +1,37 @@
+pip install yfinance pandas matplotlib
+
+import yfinance as yf
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 1. Baixar os dados históricos
+ticker = 'PETR4.SA'  # ou 'AAPL', 'MSFT', etc.
+dados = yf.download(ticker, start='2024-01-01', end='2024-04-01')
+
+# 2. Calcular a média móvel de 7 dias
+dados['SMA_7'] = dados['Close'].rolling(window=7).mean()
+
+# 3. Gerar sinais de compra/venda
+dados['Sinal'] = 0
+dados['Sinal'][7:] = [
+    1 if dados['Close'].iloc[i] > dados['SMA_7'].iloc[i] and dados['Close'].iloc[i-1] <= dados['SMA_7'].iloc[i-1]
+    else -1 if dados['Close'].iloc[i] < dados['SMA_7'].iloc[i] and dados['Close'].iloc[i-1] >= dados['SMA_7'].iloc[i-1]
+    else 0
+    for i in range(7, len(dados))
+]
+
+# 4. Exibir os sinais
+print(dados[['Close', 'SMA_7', 'Sinal']].tail(10))
+
+# 5. Visualizar os dados com gráfico
+plt.figure(figsize=(14,6))
+plt.plot(dados['Close'], label='Preço de Fechamento', color='blue')
+plt.plot(dados['SMA_7'], label='Média Móvel 7 dias', color='orange')
+plt.scatter(dados.index[dados['Sinal'] == 1], dados['Close'][dados['Sinal'] == 1], label='Compra', marker='^', color='green')
+plt.scatter(dados.index[dados['Sinal'] == -1], dados['Close'][dados['Sinal'] == -1], label='Venda', marker='v', color='red')
+plt.legend()
+plt.title(f'Sinais de Compra e Venda - {ticker}')
+plt.xlabel('Data')
+plt.ylabel('Preço')
+plt.grid(True)
+plt.show()
