@@ -1,0 +1,64 @@
+import yfinance as yf
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Passo 1: Coleta de Dados
+tickers = ["BBAS3.SA", "ITUB4.SA", "BBDC4.SA", "SANB11.SA", "B3SA3.SA"]
+start_date = "2021-01-01"
+end_date = "2023-12-31"
+
+try:
+    data = yf.download(tickers, start=start_date, end=end_date)["Adj Close"]
+    print("Dados coletados com sucesso!")
+except Exception as e:
+    print(f"Erro ao coletar dados: {e}")
+
+# Passo 2: Calcular Retornos e Volatilidade
+returns = data.pct_change().dropna()
+volatilidade = returns.std() * np.sqrt(252)  # Volatilidade anualizada
+correlacao = returns.corr()
+
+print("\nVolatilidade Anualizada:")
+print(volatilidade)
+print("\nMatriz de Correlação:")
+print(correlacao)
+
+# Passo 3: Simulação de Portfólios
+num_portfolios = 10000
+results = np.zeros((num_portfolios, 3))  # Retorno, Volatilidade, Sharpe
+
+risk_free_rate = 0.10  # Taxa Selic hipotética
+
+for i in range(num_portfolios):
+    pesos = np.random.random(len(tickers))
+    pesos /= np.sum(pesos)  # Normalizar para soma = 1
+    
+    retorno_portfolio = np.sum(returns.mean() * pesos) * 252
+    volatilidade_portfolio = np.sqrt(np.dot(pesos.T, np.dot(returns.cov()*252, pesos)))
+    sharpe = (retorno_portfolio - risk_free_rate) / volatilidade_portfolio
+    
+    results[i, :] = [retorno_portfolio, volatilidade_portfolio, sharpe]
+
+# Passo 4: Encontrar o Portfólio Ótimo
+indice_otimo = np.argmax(results[:, 2])
+pesos_otimos = pesos_otimos.round(2)
+
+print("\nPortfólio Ótimo:")
+print(f"Retorno: {results[indice_otimo, 0]:.2%}")
+print(f"Volatilidade: {results[indice_otimo, 1]:.2%}")
+print(f"Sharpe: {results[indice_otimo, 2]:.2f}")
+print("\nDistribuição dos Pesos:")
+for ticker, peso in zip(tickers, pesos_otimos):
+    print(f"{ticker}: {peso:.2%}")
+
+# Visualização Gráfica
+plt.figure(figsize=(10, 6))
+plt.scatter(results[:, 1], results[:, 0], c=results[:, 2], cmap='viridis', alpha=0.5)
+plt.colorbar(label='Índice de Sharpe')
+plt.scatter(results[indice_otimo, 1], results[indice_otimo, 0], c='red', s=100, label='Ótimo')
+plt.title('Fronteira Eficiente de Portfólios')
+plt.xlabel('Volatilidade')
+plt.ylabel('Retorno')
+plt.legend()
+plt.show()
