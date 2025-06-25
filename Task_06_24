@@ -1,0 +1,92 @@
+### Explorar um dataset simples, responder perguntas básicas e criar visualizações para comunicar os insights ###
+# ------------------------------------------
+# ANÁLISE EXPLORATÓRIA (EDA) - DATASET NETFLIX
+# ------------------------------------------
+
+# PASSO 1: Carregar bibliotecas
+library(tidyverse)    # Manipulação de dados + ggplot2
+library(lubridate)    # Trabalhar com datas
+library(ggthemes)     # Temas para gráficos
+library(scales)       # Formatação de escalas
+
+# PASSO 2: Carregar os dados
+# (Substitua o caminho pelo local do seu arquivo)
+netflix <- read_csv("netflix_titles.csv")
+
+# Visualização rápida dos dados
+glimpse(netflix)
+head(netflix)
+
+# PASSO 3: Limpeza básica
+netflix_clean <- netflix %>%
+  mutate(
+    # Converter para formato de data
+    date_added = mdy(date_added),
+    
+    # Extrair ano da data de adição
+    year_added = year(date_added),
+    
+    # Tratar valores ausentes em 'country'
+    country = ifelse(is.na(country), "Desconhecido", country)
+  )
+
+# PASSO 4: Análise exploratória
+
+# 4.1 - Qual ano teve mais lançamentos?
+releases_by_year <- netflix_clean %>%
+  count(release_year, sort = TRUE) %>%
+  top_n(5, n)
+
+# 4.2 - Quais são os 5 gêneros mais comuns?
+top_genres <- netflix_clean %>%
+  separate_rows(listed_in, sep = ", ") %>%
+  count(listed_in, sort = TRUE) %>%
+  top_n(5)
+
+# 4.3 - Qual país produz mais conteúdo?
+top_countries <- netflix_clean %>%
+  separate_rows(country, sep = ", ") %>%
+  count(country, sort = TRUE) %>%
+  top_n(5)
+
+# PASSO 5: Visualizações
+
+# Gráfico 1: Top 5 gêneros
+ggplot(top_genres, aes(x = reorder(listed_in, n), y = n)) +
+  geom_col(fill = "#E50914") +  # Vermelho da Netflix
+  coord_flip() +
+  labs(
+    title = "Top 5 Gêneros na Netflix",
+    x = "Gênero",
+    y = "Quantidade de Títulos"
+  ) +
+  theme_minimal()
+
+# Gráfico 2: Lançamentos por ano (linha do tempo)
+ggplot(releases_by_year, aes(x = release_year, y = n)) +
+  geom_line(color = "#E50914", size = 1.5) +
+  geom_point(color = "black", size = 3) +
+  labs(
+    title = "Top 5 Anos com Mais Lançamentos",
+    x = "Ano de Lançamento",
+    y = "Número de Títulos"
+  ) +
+  theme_economist()
+
+# Gráfico 3: Países produtores (barras horizontais)
+ggplot(top_countries, aes(x = reorder(country, n), y = n)) +
+  geom_col(fill = "#221F1F") +  # Preto da Netflix
+  coord_flip() +
+  labs(
+    title = "Top 5 Países Produtores de Conteúdo",
+    x = "País",
+    y = "Número de Títulos"
+  ) +
+  theme_light()
+
+# PASSO 6: Insights principais (resumo)
+cat("\n\nINSIGHTS PRINCIPAIS:\n")
+cat("- Gênero dominante:", top_genres$listed_in[1], "com", top_genres$n[1], "títulos\n")
+cat("- Ano com mais lançamentos:", releases_by_year$release_year[1], "(", releases_by_year$n[1], "títulos)\n")
+cat("- Maior produtor:", top_countries$country[1], "\n")
+cat("-", percent(mean(is.na(netflix$director)), "dos títulos sem diretor registrado\n")
