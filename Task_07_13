@@ -1,0 +1,74 @@
+# Importar bibliotecas
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Configuração de estilo dos gráficos
+sns.set(style='whitegrid')
+
+# 1. Carregar os dados
+df = pd.read_csv('vendas.csv')
+
+# Visualizar as 5 primeiras linhas
+print("Primeiras linhas do dataset:")
+print(df.head())
+
+# Verificar dimensões
+print("\nDimensões do dataframe:", df.shape)
+
+# Verificar valores nulos
+print("\nValores nulos por coluna:")
+print(df.isnull().sum())
+
+# 2. Estatísticas descritivas
+
+# Receita média por venda
+media_receita = df['Receita Total'].mean()
+print("\nReceita média por venda: R$", round(media_receita, 2))
+
+# Categoria com maior número de vendas (em quantidade total)
+categoria_mais_vendida = df.groupby('Categoria')['Quantidade'].sum().idxmax()
+print("Categoria mais vendida:", categoria_mais_vendida)
+
+# Produto mais vendido em quantidade
+produto_mais_vendido = df.groupby('Produto')['Quantidade'].sum().idxmax()
+print("Produto mais vendido:", produto_mais_vendido)
+
+# 3. Visualizações
+
+# Gráfico de barras: Receita por categoria
+plt.figure(figsize=(8,5))
+df.groupby('Categoria')['Receita Total'].sum().sort_values().plot(kind='barh', color='skyblue')
+plt.title('Receita por Categoria')
+plt.xlabel('Receita Total')
+plt.ylabel('Categoria')
+plt.tight_layout()
+plt.show()
+
+# Gráfico de pizza: Distribuição de vendas por região
+df['Região'].value_counts().plot(kind='pie', autopct='%1.1f%%', figsize=(6,6))
+plt.title('Distribuição de Vendas por Região')
+plt.ylabel('')
+plt.show()
+
+# Receita ao longo do tempo
+df['Data'] = pd.to_datetime(df['Data'])  # Converter coluna de data
+df['AnoMes'] = df['Data'].dt.to_period('M')  # Agrupar por mês
+
+receita_mensal = df.groupby('AnoMes')['Receita Total'].sum()
+
+# Gráfico de linha da receita mensal
+receita_mensal.plot(kind='line', marker='o', figsize=(10,5))
+plt.title('Evolução da Receita por Mês')
+plt.ylabel('Receita Total')
+plt.xlabel('Ano-Mês')
+plt.grid(True)
+plt.show()
+
+# 4. Insights finais
+
+print("\nCategorias mais lucrativas (em ordem decrescente):")
+print(df.groupby('Categoria')['Receita Total'].sum().sort_values(ascending=False))
+
+print("\nReceita mensal (tendência):")
+print(receita_mensal)
