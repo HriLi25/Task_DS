@@ -1,0 +1,118 @@
+# -*- coding: utf-8 -*-
+# ANÁLISE DE CHURN PARA ANALISTA DE DADOS JR
+
+# Passo 1: Importar bibliotecas
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Passo 2: Criar dataset fictício (num cenário real, seria carregado de um arquivo)
+data = {
+    'customer_id': range(1, 1001),
+    'idade': np.random.randint(18, 70, size=1000),
+    'genero': np.random.choice(['M', 'F'], size=1000, p=[0.6, 0.4]),
+    'tipo_plano': np.random.choice(['basic', 'premium', 'enterprise'], size=1000, p=[0.5, 0.3, 0.2]),
+    'duracao_contrato_meses': np.random.randint(1, 36, size=1000),
+    'gasto_mensal_medio': np.round(np.random.uniform(30, 300, size=1000), 2),
+    'suporte_ultimo_mes': np.random.randint(0, 5, size=1000),
+    'churn': np.random.choice([0, 1], size=1000, p=[0.7, 0.3])
+}
+
+# Converter para DataFrame
+df = pd.DataFrame(data)
+
+# Simular dados faltantes (cenário real)
+df.loc[np.random.choice(df.index, size=50), 'gasto_mensal_medio'] = np.nan
+
+# Passo 3: Análise exploratória e limpeza
+print("\n=== ANÁLISE EXPLORATÓRIA ===")
+print("Informações do dataset:")
+print(df.info())
+
+print("\nValores faltantes antes do tratamento:")
+print(df.isnull().sum())
+
+# Preencher valores faltantes
+df['gasto_mensal_medio'].fillna(df['gasto_mensal_medio'].median(), inplace=True)
+
+# Converter tipos de dados
+df['genero'] = df['genero'].astype('category')
+df['tipo_plano'] = df['tipo_plano'].astype('category')
+
+# Remover duplicatas
+df.drop_duplicates(inplace=True)
+
+print("\nValores faltantes após tratamento:")
+print(df.isnull().sum())
+
+# Passo 4: Calcular taxa global de churn
+taxa_churn = df['churn'].mean() * 100
+print(f"\n=== TAXA GLOBAL DE CHURN: {taxa_churn:.2f}% ===")
+
+# Passo 5: Identificar correlações com churn
+print("\n=== ANÁLISE DE CORRELAÇÕES ===")
+
+# 1. Churn por tipo de plano
+churn_plano = df.groupby('tipo_plano')['churn'].mean()
+print("\nTaxa de churn por plano:")
+print(churn_plano)
+
+# 2. Churn por faixa etária
+df['faixa_etaria'] = pd.cut(df['idade'], 
+                           bins=[0, 25, 35, 45, 55, 100],
+                           labels=['18-25', '26-35', '36-45', '46-55', '56+'])
+churn_idade = df.groupby('faixa_etaria')['churn'].mean()
+print("\nTaxa de churn por faixa etária:")
+print(churn_idade)
+
+# 3. Churn por uso de suporte
+df['categoria_suporte'] = pd.cut(df['suporte_ultimo_mes'],
+                                bins=[-1, 0, 1, 2, 10],
+                                labels=['0 contatos', '1 contato', '2 contatos', '3+ contatos'])
+churn_suporte = df.groupby('categoria_suporte')['churn'].mean()
+print("\nTaxa de churn por contatos com suporte:")
+print(churn_suporte)
+
+# Passo 6: Visualizações
+print("\n=== CRIANDO VISUALIZAÇÕES ===")
+plt.figure(figsize=(12, 10))
+
+# Gráfico 1: Churn por tipo de plano
+plt.subplot(2, 2, 1)
+sns.barplot(x=churn_plano.index, y=churn_plano.values, palette="viridis")
+plt.title('Taxa de Churn por Tipo de Plano')
+plt.ylabel('% de Churn')
+plt.xlabel('Tipo de Plano')
+plt.ylim(0, 0.5)
+
+# Gráfico 2: Churn por faixa etária
+plt.subplot(2, 2, 2)
+sns.barplot(x=churn_idade.index, y=churn_idade.values, palette="magma")
+plt.title('Taxa de Churn por Faixa Etária')
+plt.ylabel('% de Churn')
+plt.xlabel('Faixa Etária')
+
+# Gráfico 3: Churn por contatos com suporte
+plt.subplot(2, 2, 3)
+sns.barplot(x=churn_suporte.index, y=churn_suporte.values, palette="rocket")
+plt.title('Taxa de Churn por Contatos com Suporte')
+plt.ylabel('% de Churn')
+plt.xlabel('Contatos no Último Mês')
+
+# Gráfico 4: Distribuição de churn
+plt.subplot(2, 2, 4)
+sns.countplot(x='churn', data=df, palette='pastel')
+plt.title('Distribuição de Churn')
+plt.xlabel('Churn (0 = Ativo, 1 = Cancelou)')
+plt.ylabel('Contagem de Clientes')
+
+plt.tight_layout()
+plt.savefig('analise_churn_jr.png', dpi=300)
+plt.show()
+
+# Extra: Correlação numérica (para contexto)
+print("\nMatriz de correlação numérica:")
+print(df[['idade', 'duracao_contrato_meses', 'gasto_mensal_medio', 'suporte_ultimo_mes', 'churn']].corr())
+
+print("\nAnálise concluída! Gráficos salvos como 'analise_churn_jr.png'")
