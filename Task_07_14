@@ -1,0 +1,224 @@
+# -*- coding: utf-8 -*-
+# TASK PARA CIENTISTA DE DADOS JR: MODELO DE PREVISÃO DE CHURN
+
+# ========== IMPORTAÇÕES ==========
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (accuracy_score, precision_score, recall_score, 
+                            f1_score, roc_auc_score, confusion_matrix, 
+                            ConfusionMatrixDisplay, RocCurveDisplay)
+from sklearn.pipeline import Pipeline
+import matplotlib.pyplot as plt
+import seaborn as sns
+import joblib
+
+# ========== GERAR DATASET FICTÍCIO ==========
+np.random.seed(42)
+n_samples = 2000
+
+data = {
+    'customer_id': range(1, n_samples + 1),
+    'idade': np.random.randint(18, 70, size=n_samples),
+    'genero': np.random.choice(['M', 'F', 'Outro'], size=n_samples, p=[0.55, 0.4, 0.05]),
+    'tipo_plano': np.random.choice(['basic', 'premium', 'enterprise'], size=n_samples, p=[0.5, 0.3, 0.2]),
+    'duracao_contrato': np.random.randint(1, 36, size=n_samples),
+    'gasto_mensal': np.round(np.random.normal(150, 50, n_samples), 2),
+    'chamados_suporte': np.random.poisson(0.8, n_samples),
+    'satisfacao': np.random.randint(1, 11, size=n_samples),
+    'pagamento_atraso': np.random.choice([0, 1], size=n_samples, p=[0.85, 0.15]),
+    'uso_app': np.round(np.random.uniform(0, 10, n_samples), 1),
+    'churn': np.random.choice([0, 1], size=n_samples, p=[0.75, 0.25])
+}
+
+# Criar relações não-lineares e padrões complexos
+data['gasto_mensal'] = np.where(
+    (data['tipo_plano'] == 'enterprise') & (data['idade'] > 40),
+    data['gasto_mensal'] * 1.5,
+    data['gasto_mensal']
+)
+
+data['churn_prob'] = 1 / (1 + np.exp(
+    -(-2.5 
+      + 0.03 * data['idade'] 
+      - 0.8 * (data['tipo_plano'] == 'premium') 
+      - 1.2 * (data['tipo_plano'] == 'enterprise')
+      - 0.05 * data['duracao_contrato'] 
+      + 0.7 * data['pagamento_atraso'] 
+      + 0.4 * data['chamados_suporte'] 
+      - 0.15 * data['satisfacao']
+    )
+))
+
+# Gerar churn baseado na probabilidade
+data['churn'] = np.random.binomial(1, data['churn_prob'])
+
+df = pd.DataFrame(data).drop('churn_prob', axis=1)
+
+# Adicionar valores ausentes
+cols_with_na = ['gasto_mensal', 'satisfacao', 'uso_app']
+for col in cols_with_na:
+    idx = np.random.choice(df.index, size=int(n_samples*0.05), replace=False)
+    df.loc[idx, col] = np.nan
+
+# ========== PRÉ-PROCESSAMENTO ==========
+print("="*50)
+print("ETAPA 1: PRÉ-PROCESSAMENTO DE DADOS")
+print("="*50)
+
+# 1. Engenharia de features
+df['idade_quadrado'] = df['idade'] ** 2
+df['gasto_por_idade'] = df['gasto_mensal'] / df['idade']
+df['interacao_plano_satisfacao'] = df['satisfacao'] * np.where(
+    df['tipo_plano'] == 'premium', 1.2, np.where(
+        df['tipo_plano'] == 'enterprise', 1.5, 1)
+)
+
+# 2. Definir variáveis
+X = df.drop(['customer_id', 'churn'], axis=1)
+y = df['churn']
+
+# 3. Dividir dados
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=42
+)
+
+# 4. Pré-processamento com ColumnTransformer
+numeric_features = ['idade', 'duracao_contrato', 'gasto_mensal', 
+                    'satisfacao', 'uso_app', 'idade_quadrado',
+                    'gasto_por_idade', 'interacao_plano_satisfacao']
+numeric_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='median')),
+    ('scaler', StandardScaler())
+])
+
+categorical_features = ['genero', 'tipo_plano']
+categorical_transformer = Pipeline(steps=[
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ('onehot', OneHotEncoder(handle_unknown='ignore', sparse=False))
+])
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', numeric_transformer, numeric_features),
+        ('cat', categorical_transformer, categorical_features)
+    ]
+)
+
+print("\nDivisão dos dados:")
+print(f"Treino: {X_train.shape[0]} amostras | Teste: {X_test.shape[0]} amostras")
+print(f"Proporção de churn (treino): {y_train.mean():.2%}")
+
+# ========== MODELAGEM ==========
+print("\n" + "="*50)
+print("ETAPA 2: CONSTRUÇÃO DO MODELO")
+print("="*50)
+
+# 1. Criar pipeline
+model = Pipeline(steps=[
+    ('preprocessor', preprocessor),
+    ('classifier', RandomForestClassifier(random_state=42, class_weight='balanced'))
+])
+
+# 2. Hiperparâmetros para tuning
+param_grid = {
+    'classifier__n_estimators': [100, 200],
+    'classifier__max_depth': [None, 10, 20],
+    'classifier__min_samples_split': [2, 5],
+    'classifier__max_features': ['sqrt', 0.8]
+}
+
+# 3. Busca de hiperparâmetros com validação cruzada
+grid_search = GridSearchCV(
+    model, 
+    param_grid, 
+    cv=5,
+    scoring='roc_auc',
+    n_jobs=-1,
+    verbose=1
+)
+
+print("\nIniciando GridSearchCV...")
+grid_search.fit(X_train, y_train)
+
+print("\nMelhores hiperparâmetros encontrados:")
+print(grid_search.best_params_)
+
+# 4. Treinar modelo final com melhores parâmetros
+best_model = grid_search.best_estimator_
+best_model.fit(X_train, y_train)
+
+# ========== AVALIAÇÃO DO MODELO ==========
+print("\n" + "="*50)
+print("ETAPA 3: AVALIAÇÃO DO MODELO")
+print("="*50)
+
+# 1. Previsões
+y_pred = best_model.predict(X_test)
+y_proba = best_model.predict_proba(X_test)[:, 1]
+
+# 2. Métricas
+metrics = {
+    "Acurácia": accuracy_score(y_test, y_pred),
+    "Precisão": precision_score(y_test, y_pred),
+    "Recall": recall_score(y_test, y_pred),
+    "F1-Score": f1_score(y_test, y_pred),
+    "AUC-ROC": roc_auc_score(y_test, y_proba)
+}
+
+print("\nMétricas de desempenho:")
+for metric, value in metrics.items():
+    print(f"{metric}: {value:.4f}")
+
+# 3. Matriz de confusão
+cm = confusion_matrix(y_test, y_pred)
+disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Não Churn', 'Churn'])
+disp.plot(cmap='Blues')
+plt.title('Matriz de Confusão')
+plt.savefig('confusion_matrix.png')
+
+# 4. Curva ROC
+RocCurveDisplay.from_predictions(y_test, y_proba)
+plt.plot([0, 1], [0, 1], 'k--')
+plt.title('Curva ROC')
+plt.savefig('roc_curve.png')
+
+# 5. Importância das features
+# Extrair nomes das features após pré-processamento
+feature_names = numeric_features.copy()
+cat_encoder = best_model.named_steps['preprocessor'].named_transformers_['cat'].named_steps['onehot']
+feature_names += list(cat_encoder.get_feature_names_out(categorical_features))
+
+importances = best_model.named_steps['classifier'].feature_importances_
+feat_imp = pd.DataFrame({
+    'Feature': feature_names,
+    'Importância': importances
+}).sort_values('Importância', ascending=False)
+
+plt.figure(figsize=(10, 6))
+sns.barplot(x='Importância', y='Feature', data=feat_imp.head(10), palette='viridis')
+plt.title('Top 10 Features Mais Importantes')
+plt.tight_layout()
+plt.savefig('feature_importance.png')
+
+# ========== SALVAR MODELO E RESULTADOS ==========
+joblib.dump(best_model, 'churn_model.pkl')
+feat_imp.to_csv('feature_importances.csv', index=False)
+
+print("\n" + "="*50)
+print("RESULTADOS FINAIS")
+print("="*50)
+print(f"Modelo salvo como 'churn_model.pkl'")
+print(f"Arquivos gerados:")
+print("- confusion_matrix.png\n- roc_curve.png\n- feature_importance.png\n- feature_importances.csv")
+
+print("\n=== INSIGHTS PARA A EQUIPE DE NEGÓCIOS ===")
+print(f"1. Fatores críticos para churn: {feat_imp.Feature.values[:3]}")
+print(f"2. O modelo identifica {metrics['Recall']:.1%} dos clientes que vão cancelar")
+print(f"3. Sensibilidade a falsos positivos: {metrics['Precisão']:.1%} das previsões de churn são corretas")
+
+# Exibir gráficos
+plt.show()
