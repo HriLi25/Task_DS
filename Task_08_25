@@ -1,0 +1,45 @@
+# Importar bibliotecas
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, classification_report
+import warnings
+warnings.filterwarnings('ignore')
+
+# 1. Criar dataset sintético (simulando dados reais)
+np.random.seed(42)
+data = {
+    'age': np.random.randint(18, 70, 1000),
+    'salary': np.random.normal(3000, 1000, 1000).round(2),
+    'loan_amount': np.random.uniform(1000, 10000, 1000).round(2),
+    'default': np.random.choice([0, 1], size=1000, p=[0.7, 0.3])  # 30% de inadimplência
+}
+df = pd.DataFrame(data)
+
+# 2. Explorar dados
+print("Primeiras linhas:\n", df.head())
+print("\nEstatísticas descritivas:\n", df.describe())
+print("\nValores missing:\n", df.isnull().sum())
+
+# 3. Pré-processamento
+# Separar features (X) e target (y)
+X = df[['age', 'salary', 'loan_amount']]
+y = df['default']
+
+# Dividir em treino e teste
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 4. Treinar modelo
+model = LogisticRegression()
+model.fit(X_train, y_train)
+
+# 5. Fazer previsões e avaliar
+y_pred = model.predict(X_test)
+print("\nAcurácia:", accuracy_score(y_test, y_pred))
+print("\nRelatório de classificação:\n", classification_report(y_test, y_pred))
+
+# Exemplo de previsão para novo cliente
+new_client = [[25, 2500, 5000]]
+prediction = model.predict(new_client)
+print(f"\nPrevisão para novo cliente (25 anos, R$2500 de salário, empréstimo de R$5000): {'Inadimplente' if prediction[0] == 1 else 'Adimplente'}")
