@@ -1,0 +1,40 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Configurar o gráfico para português (se necessário)
+plt.rcParams['font.family'] = 'DejaVu Sans'
+
+def main():
+    # 1. Ler o arquivo CSV
+    try:
+        df = pd.read_csv('investidores.csv')
+    except FileNotFoundError:
+        print("Erro: Arquivo 'investidores.csv' não encontrado.")
+        return
+
+    # 2. Limpar dados: remover linhas com UF vazia
+    df_clean = df.dropna(subset=['uf'])
+
+    # 3. Agregar total de investidores por UF
+    contagem_uf = df_clean['uf'].value_counts().reset_index()
+    contagem_uf.columns = ['uf', 'total_investidores']
+
+    # 4. Salvar resultado em CSV
+    contagem_uf.to_csv('investidores_por_uf.csv', index=False)
+    print("Arquivo 'investidores_por_uf.csv' gerado com sucesso!")
+
+    # 5. Gerar gráfico de barras
+    plt.figure(figsize=(10, 6))
+    plt.bar(contagem_uf['uf'], contagem_uf['total_investidores'], color='skyblue')
+    plt.title('Número de Investidores por UF')
+    plt.xlabel('Estados (UF)')
+    plt.ylabel('Total de Investidores')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    
+    # Salvar o gráfico
+    plt.savefig('investidores_por_uf.png')
+    print("Gráfico salvo como 'investidores_por_uf.png'")
+
+if __name__ == "__main__":
+    main()
