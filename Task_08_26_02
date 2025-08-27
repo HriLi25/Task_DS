@@ -1,0 +1,33 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 1. Ler dataset de transações
+df = pd.read_csv("transacoes.csv")
+
+# 2. Valor total transacionado por cliente
+total_por_cliente = df.groupby("cliente")["valor"].sum().reset_index()
+total_por_cliente = total_por_cliente.sort_values(by="valor", ascending=False)
+
+print("Valor total por cliente:")
+print(total_por_cliente)
+
+# 3. Valor médio das transações por área de investimento
+media_por_area = df.groupby("area_investimento")["valor"].mean().reset_index()
+
+print("\nValor médio por área de investimento:")
+print(media_por_area)
+
+# 4. Salvar em CSV
+total_por_cliente.to_csv("total_por_cliente.csv", index=False)
+media_por_area.to_csv("media_por_area.csv", index=False)
+
+# 5. Gráfico dos top 5 clientes que mais transacionaram
+top5 = total_por_cliente.head(5)
+
+plt.figure(figsize=(8,5))
+plt.bar(top5["cliente"], top5["valor"], color="skyblue")
+plt.title("Top 5 Clientes - Valor Total Transacionado")
+plt.xlabel("Cliente")
+plt.ylabel("Valor Total (R$)")
+plt.tight_layout()
+plt.show()
