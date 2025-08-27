@@ -1,0 +1,25 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# 1. Ler o dataset CSV
+df = pd.read_csv("investidores.csv")
+
+# 2. Contar o número de investidores por área de investimento
+contagem = df["area_investimento"].value_counts().reset_index()
+contagem.columns = ["area_investimento", "num_investidores"]
+
+print("Resumo por área de investimento:")
+print(contagem)
+
+# 3. Salvar resultado em um novo CSV
+contagem.to_csv("investidores_resumo.csv", index=False)
+
+# 4. Criar gráfico
+plt.figure(figsize=(8,5))
+plt.bar(contagem["area_investimento"], contagem["num_investidores"])
+plt.title("Número de Investidores por Área de Investimento")
+plt.xlabel("Área de Investimento")
+plt.ylabel("Número de Investidores")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
