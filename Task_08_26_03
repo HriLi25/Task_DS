@@ -1,0 +1,57 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+# Configurar o gráfico para português
+plt.rcParams['font.family'] = 'DejaVu Sans'
+
+def calcular_idade(data_nascimento):
+    """Calcula idade com base na data de nascimento"""
+    hoje = datetime.now()
+    return hoje.year - data_nascimento.year - ((hoje.month, hoje.day) < (data_nascimento.month, data_nascimento.day))
+
+def main():
+    # 1. Ler o arquivo CSV
+    try:
+        df = pd.read_csv('investidores_demograficos.csv')
+    except FileNotFoundError:
+        print("Erro: Arquivo 'investidores_demograficos.csv' não encontrado.")
+        return
+
+    # 2. Converter data_nascimento para datetime e calcular idade
+    df['data_nascimento'] = pd.to_datetime(df['data_nascimento'])
+    df['idade'] = df['data_nascimento'].apply(calcular_idade)
+
+    # 3. Categorizar em faixas etárias
+    bins = [0, 25, 35, 45, 55, 120]
+    labels = ['18-25', '26-35', '36-45', '46-55', '56+']
+    df['faixa_etaria'] = pd.cut(df['idade'], bins=bins, labels=labels, right=True)
+
+    # 4. Contar investidores por faixa etária
+    contagem_faixa = df['faixa_etaria'].value_counts().sort_index().reset_index()
+    contagem_faixa.columns = ['faixa_etaria', 'total_investidores']
+
+    # 5. Salvar resultado em CSV
+    contagem_faixa.to_csv('investidores_faixa_etaria.csv', index=False)
+    print("Arquivo 'investidores_faixa_etaria.csv' gerado com sucesso!")
+
+    # 6. Gerar gráfico de pizza
+    plt.figure(figsize=(10, 6))
+    plt.pie(contagem_faixa['total_investidores'], 
+            labels=contagem_faixa['faixa_etaria'], 
+            autopct='%1.1f%%',
+            startangle=90)
+    plt.title('Distribuição de Investidores por Faixa Etária')
+    plt.axis('equal')
+    plt.tight_layout()
+    
+    # Salvar o gráfico
+    plt.savefig('investidores_faixa_etaria.png')
+    print("Gráfico salvo como 'investidores_faixa_etaria.png'")
+
+    # Mostrar resultados no console
+    print("\nResumo da distribuição:")
+    print(contagem_faixa)
+
+if __name__ == "__main__":
+    main()
