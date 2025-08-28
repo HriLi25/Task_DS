@@ -1,0 +1,66 @@
+import pandas as pd
+import numpy as np
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Configurações
+np.random.seed(42)
+plt.style.use('seaborn-v0_8')
+
+# 1. Carregar os dados (exemplo simulado)
+data = pd.read_csv('transacoes.csv')  # Supondo: user_id, valor, hora, dia_semana, categoria
+
+# 2. Pré-processamento
+# Criar features de comportamento
+features = data.groupby('user_id').agg(
+    transacao_count=('valor', 'count'),
+    valor_medio=('valor', 'mean'),
+    hora_media=('hora', 'mean'),
+    variacao_valor=('valor', 'std')
+).fillna(0)  # Preencher NaNs com 0
+
+# Normalizar os dados
+scaler = StandardScaler()
+scaled_features = scaler.fit_transform(features)
+
+# 3. Clustering com K-Means
+kmeans = KMeans(n_clusters=5, n_init=10)
+features['cluster'] = kmeans.fit_predict(scaled_features)
+
+# 4. Detecção de anomalias por distância ao centróide
+centroids = kmeans.cluster_centers_
+features['distancia_centroide'] = np.linalg.norm(scaled_features - centroids[features['cluster']], axis=1)
+
+# Definir outliers (top 5% mais distantes)
+threshold = np.percentile(features['distancia_centroide'], 95)
+features['outlier'] = features['distancia_centroide'] > threshold
+
+# 5. Visualização
+pca = PCA(n_components=2)
+reduced_data = pca.fit_transform(scaled_features)
+features['pca_x'] = reduced_data[:, 0]
+features['pca_y'] = reduced_data[:, 1]
+
+plt.figure(figsize=(10, 6))
+sns.scatterplot(
+    data=features,
+    x='pca_x', y='pca_y',
+    hue='cluster',
+    style='outlier',
+    palette='viridis',
+    size='distancia_centroide',
+    sizes=(20, 200)
+)
+plt.title('Clusters de Comportamento com Outliers Destacados')
+plt.xlabel('Componente PCA 1')
+plt.ylabel('Componente PCA 2')
+plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+plt.tight_layout()
+plt.show()
+
+# 6. Retornar usuários suspeitos
+usuarios_suspeitos = features[features['outlier']].index.tolist()
+print(f"Usuários com comportamento anômalo: {usuarios_suspeitos}")
