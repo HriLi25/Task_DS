@@ -1,0 +1,59 @@
+# Task: Identificação de padrões de comportamento de clientes em fintech
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+
+# ---------------------------
+# 1. Criando base fictícia
+# ---------------------------
+np.random.seed(42)
+n_clientes = 200
+
+dados = pd.DataFrame({
+    "cliente_id": range(1, n_clientes+1),
+    "valor_medio_invest": np.random.normal(5000, 2000, n_clientes).clip(500, 20000),
+    "freq_invest_mensal": np.random.randint(1, 15, n_clientes),
+    "nivel_risco": np.random.choice([1, 2, 3], size=n_clientes, p=[0.4, 0.4, 0.2]) # 1=baixo, 2=médio, 3=alto
+})
+
+print("Primeiros dados:")
+print(dados.head())
+
+# ---------------------------
+# 2. Preparando os dados
+# ---------------------------
+X = dados[["valor_medio_invest", "freq_invest_mensal", "nivel_risco"]]
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# ---------------------------
+# 3. Aplicando KMeans
+# ---------------------------
+kmeans = KMeans(n_clusters=3, random_state=42)
+dados["cluster"] = kmeans.fit_predict(X_scaled)
+
+# ---------------------------
+# 4. Analisando resultados
+# ---------------------------
+print("\nQuantidade de clientes por cluster:")
+print(dados["cluster"].value_counts())
+
+# Estatísticas dos clusters
+print("\nMédia por cluster:")
+print(dados.groupby("cluster")[["valor_medio_invest", "freq_invest_mensal", "nivel_risco"]].mean())
+
+# ---------------------------
+# 5. Visualização
+# ---------------------------
+plt.figure(figsize=(8,6))
+plt.scatter(dados["valor_medio_invest"], dados["freq_invest_mensal"], 
+            c=dados["cluster"], cmap="viridis", alpha=0.7)
+plt.xlabel("Valor médio investido")
+plt.ylabel("Frequência de investimentos mensais")
+plt.title("Clusters de clientes - Fintech")
+plt.colorbar(label="Cluster")
+plt.show()
