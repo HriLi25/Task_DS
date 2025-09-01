@@ -1,0 +1,46 @@
+import pandas as pd
+import numpy as np
+
+# Criar dados base
+np.random.seed(42)
+n = 1000
+
+data = {
+    'transaction_id': range(1000, 1000 + n),
+    'user_id': np.random.randint(100, 500, n),
+    'valor': np.round(np.random.lognormal(mean=3, sigma=1.5, size=n), 2),
+    'categoria': np.random.choice(['alimentacao', 'transporte', 'lazer', 'saude', 'salario'], n),
+    'data': pd.date_range(start='2023-01-01', end='2023-12-31', periods=n),
+    'estabelecimento': ['Estab_' + str(i) for i in np.random.randint(1, 50, n)],
+    'latitude': np.random.uniform(-33, 5, n),
+    'longitude': np.random.uniform(-74, -35, n)
+}
+
+df = pd.DataFrame(data)
+
+# --- Introduzir problemas artificialmente ---
+# 1. Duplicatas
+df = pd.concat([df, df.iloc[[5, 15, 100]]], ignore_index=True)
+
+# 2. Valores Ausentes
+df.loc[df.sample(frac=0.05).index, 'estabelecimento'] = np.nan
+df.loc[df.sample(frac=0.03).index, 'categoria'] = np.nan
+df.loc[df.sample(frac=0.02).index, 'longitude'] = np.nan
+
+# 3. Inconsistências de Categoria
+df['categoria'] = df['categoria'].str.upper().sample(frac=0.8, random_state=1) # Mistura maiúsculas/minúsculas
+df.loc[df.sample(frac=0.1).index, 'categoria'] = '  transporte  ' # Espaços extras
+
+# 4. Outliers absurdos
+df.loc[df.sample(frac=0.01).index, 'valor'] = 50000.00
+df.loc[df.sample(frac=0.01).index, 'valor'] = -20000.00 # Estorno grande mas possível, é um bom caso de debate
+
+# 5. Inconsistência de Data (formato string com problema)
+df['data'] = df['data'].dt.strftime('%Y-%m-%d %H:%M:%S')
+df.loc[df.sample(frac=0.02).index, 'data'] = 'data_invalida'
+
+# 6. Coordenadas fora do contexto (exemplo: Japão)
+df.loc[df.sample(frac=0.01).index, ['latitude', 'longitude']] = [35.6762, 139.6503] # Tóquio
+
+df.to_csv('transacoes_clientes.csv', index=False)
+print("Dataset 'sujo' gerado com sucesso!")
