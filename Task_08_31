@@ -1,0 +1,39 @@
+import pandas as pd
+from datetime import datetime
+
+# 1. Criar dataset fictício
+data = {
+    "Nome": ["Ana", "Bruno", "Carla", "Diego"],
+    "CPF": ["12345678901", "98765432100", "45678912300", "32165498700"],
+    "Idade": [29, 35, 41, 27],
+    "Saldo": [15000, 32000, 50000, 12000],
+    "Perfil_Risco": ["Conservador", "Moderado", "Arrojado", "Moderado"],
+    "Transacoes": [45, 120, 300, 25]
+}
+
+df = pd.DataFrame(data)
+
+# 2. Regras de liberação
+regras = {
+    "Marketing": ["Nome", "Idade", "Perfil_Risco"],
+    "Compliance": ["CPF", "Transacoes"],
+    "GestaoInvestimentos": ["Nome", "Saldo", "Perfil_Risco"]
+}
+
+# 3. Função para liberação de dados
+def liberar_dados(setor):
+    if setor not in regras:
+        raise ValueError("Setor não autorizado.")
+    
+    cols = regras[setor]
+    dados_filtrados = df[cols]
+    
+    # 4. Registro do log
+    with open("log_liberacao.txt", "a") as log:
+        log.write(f"{datetime.now()} - Setor: {setor} - Colunas liberadas: {cols}\n")
+    
+    return dados_filtrados
+
+# Exemplo de uso
+print("Dados liberados para Marketing:\n", liberar_dados("Marketing"))
+print("\nDados liberados para Compliance:\n", liberar_dados("Compliance"))
